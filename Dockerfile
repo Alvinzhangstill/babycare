@@ -1,6 +1,9 @@
 # ===== 构建阶段 =====
 FROM node:20-alpine AS builder
 
+# 增加 Node.js 内存限制，避免构建时 OOM
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 WORKDIR /app
 
 # 先复制依赖配置文件
