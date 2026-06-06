@@ -1,87 +1,43 @@
 # 宝宝助手 BabyCare — Ubuntu 22.04 部署指南
 
-## 方式一：Docker 部署（推荐）
-
-### 步骤 1：安装 Docker
-
-登录到你的 Ubuntu 22.04 服务器，执行：
-
-```bash
-# 更新包索引
-sudo apt update
-
-# 安装 Docker
-sudo apt install -y docker.io
-
-# 启动 Docker 并设置开机自启
-sudo systemctl enable --now docker
-
-# 将当前用户加入 docker 组（避免每次加 sudo）
-sudo usermod -aG docker $USER
-
-# 退出重新登录使组生效
-exit
-```
-
-重新登录后验证：
-
-```bash
-docker --version
-docker ps
-```
-
-### 步骤 2：安装 Docker Compose
-
-```bash
-# 下载 Docker Compose 插件
-sudo apt install -y docker-compose-v2
-
-# 验证
-docker compose version
-```
-
-### 步骤 3：拉取代码并部署
-
-```bash
-# 克隆代码
-git clone https://github.com/Alvinzhangstill/babycare.git
-cd babycare
-
-# 构建并启动（首次构建约 2-3 分钟）
-docker compose up -d --build
-
-# 查看运行状态
-docker compose ps
-
-# 查看实时日志
-docker compose logs -f
-```
-
-### 步骤 4：访问应用
-
-打开浏览器访问：`http://你的服务器IP:8080`
+> ⚠️ 你的服务器只有 1GB 内存，推荐使用**方案一（本地构建 + Nginx）**，避免 Docker 构建时内存不足。
 
 ---
 
-## 方式二：直接 Nginx 部署（无 Docker，更轻量）
+## 方案一：本地构建 + Nginx 部署（推荐，最省内存）
 
-### 步骤 1：在本地构建项目
-
-在你的 Windows 开发机上（已安装好依赖）：
+### 步骤 1：在本地（你的 Windows 电脑）构建项目
 
 ```bash
 cd d:\vibecoding\babycare\babycare
+
+# 安装依赖（如果还没装）
+npm install --ignore-scripts
+
+# 构建生产版本
 npm run build
 ```
 
+构建完成后，`dist/` 目录下会生成所有静态文件。
+
 ### 步骤 2：将 dist 上传到服务器
 
+在本地 PowerShell 中执行：
+
 ```bash
-# 在本地 PowerShell 中执行
+# 将 dist 目录上传到服务器
 scp -r dist/* 你的用户名@你的服务器IP:/var/www/babycare/
 ```
 
-### 步骤 3：在服务器上安装配置 Nginx
+如果 `scp` 不能用，也可以用 `rsync`：
+
+```bash
+rsync -avz dist/ 你的用户名@你的服务器IP:/var/www/babycare/
+```
+
+### 步骤 3：在服务器上安装并配置 Nginx
+
+SSH 登录到服务器，执行：
 
 ```bash
 # 安装 Nginx
@@ -91,13 +47,8 @@ sudo apt install -y nginx
 # 创建网站目录
 sudo mkdir -p /var/www/babycare
 
-# 配置 Nginx
-sudo nano /etc/nginx/sites-available/babycare
-```
-
-粘贴以下内容：
-
-```nginx
+# 创建 Nginx 配置文件
+sudo tee /etc/nginx/sites-available/babycare > /dev/null << 'EOF'
 server {
     listen 80;
     server_name _;
@@ -119,14 +70,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 }
-```
+EOF
 
-```bash
 # 启用站点
 sudo ln -sf /etc/nginx/sites-available/babycare /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
+
+# 测试配置并重载
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### 步骤 4：访问
@@ -135,31 +86,38 @@ sudo systemctl reload nginx
 
 ---
 
-## 常用运维命令
+## 方案二：Docker 部署（如果一定要用 Docker）
 
 ```bash
-# Docker 方式
-docker compose logs -f        # 查看日志
-docker compose restart        # 重启
-docker compose down           # 停止
-docker compose up -d --build  # 更新代码后重新构建
-
-# 更新应用（Docker 方式）
+# 在服务器上
+cd babycare
 git pull
 docker compose up -d --build
-
-# Nginx 方式
-sudo systemctl reload nginx   # 重载配置
-sudo systemctl restart nginx  # 重启
 ```
+
+> ⚠️ 1GB 内存构建可能较慢，如果构建失败请改用方案一。
+
+---
+
+## 更新应用
+
+以后更新代码只需要：
+
+```bash
+# 1. 在本地拉取最新代码并构建
+cd d:\vibecoding\babycare\babycare
+git pull
+npm run build
+
+# 2. 重新上传到服务器
+scp -r dist/* 你的用户名@你的服务器IP:/var/www/babycare/
+```
+
+---
 
 ## iPhone 使用（PWA）
 
 1. Safari 打开网址 → 分享按钮 → 添加到主屏幕
 2. 桌面出现"宝宝助手"图标，点击即可像原生 App 使用
 
-## 注意事项
-
-- PWA 的 Service Worker 需要 HTTPS 才能正常工作
-- 建议配置域名 + Let's Encrypt 免费证书
-- 所有数据存储在用户浏览器本地，服务器只托管静态文件
+> ⚠️ PWA 的 Service Worker 需要 HTTPS 才能正常工作，建议配置域名 + Let's Encrypt 免费证书。
