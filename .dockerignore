@@ -1,0 +1,7 @@
+node_modules
+.git
+.gitignore
+.env
+.env.local
+e2e
+src/test
