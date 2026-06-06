@@ -12,10 +12,7 @@ RUN npm install --ignore-scripts
 # 再复制源码（.dockerignore 会排除 node_modules/.git 等）
 COPY . .
 
-# 创建 .git 目录让 vite.config.ts 中的 git rev-parse 能工作
-RUN mkdir -p .git && echo "0000000" > .git/HEAD
-
-# 构建生产版本
+# 构建生产版本（vite.config.ts 已兼容无 git 环境）
 RUN npx vite build
 
 # ===== 运行阶段 =====

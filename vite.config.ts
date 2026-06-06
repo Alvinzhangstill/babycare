@@ -5,7 +5,12 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const commitHash = execSync("git rev-parse --short HEAD").toString().trim();
+let commitHash = "unknown";
+try {
+  commitHash = execSync("git rev-parse --short HEAD", { timeout: 3000 }).toString().trim();
+} catch {
+  // 在 Docker 构建等无 git 环境下使用默认值
+}
 
 export default defineConfig({
   define: {
